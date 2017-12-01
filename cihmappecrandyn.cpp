@@ -64,7 +64,9 @@ void CIhmAppEcranDyn::on_pbActiver_clicked()
     if (tc) delete tc;
     tc = new CTelecommandeRs232Samsung(this, port.toStdString().c_str());
     connect(tc, SIGNAL(sigErreur(char, QString)), this, SLOT(onErreurTc(char, QString)));
-    connect(tc, SIGNAL(sigAffTrame(QString)), this, SLOT(onAffTrame(QString)));
+    connect(tc, SIGNAL(sigEtatAlimentation(char)), this, SLOT(onEtatAlimentation(char)));
+    connect(tc, SIGNAL(sigSourceEntree(char)), this, SLOT(onSourceEntree(char)));
+    //connect(tc, SIGNAL(sigAffTrame(QString)), this, SLOT(onAffTrame(QString)));
     ui->gbEcran->setEnabled(true);
     ui->cbPorts->setEnabled(false);
     onAffTrame("Port ouvert.");
@@ -86,6 +88,8 @@ void CIhmAppEcranDyn::onAffTrame(QString trame)
 void CIhmAppEcranDyn::on_pbEtat_clicked()
 {
     char etat = tc->getEtatAlimentation(mId);
+    if (etat > -1)
+        qDebug() << "source OK : " << etat;
     if (etat==1)
         ui->lEtat->setText("Allumé");
     else
@@ -97,6 +101,21 @@ void CIhmAppEcranDyn::on_cbId_currentIndexChanged(int index)
     mId = index;
 }
 
+void CIhmAppEcranDyn::onEtatAlimentation(char etat)
+{
+    if (etat==1)
+        ui->lEtat->setText("Allumé");
+    else
+        ui->lEtat->setText("Eteint");
+}
+
+void CIhmAppEcranDyn::onSourceEntree(char src)
+{
+    QString ssource;
+    ssource = tc->getSource((E_SOURCE_ENTREE)src);
+    ui->lGetSource->setText(ssource);
+}
+
 void CIhmAppEcranDyn::on_pbSetSource_clicked()
 {
   tc->setSourceEntree(mId, tc->getCodeSource(ui->cbSource->currentText()));
@@ -104,8 +123,10 @@ void CIhmAppEcranDyn::on_pbSetSource_clicked()
 
 void CIhmAppEcranDyn::on_pbGetSource_clicked()
 {
-    int source=tc->getSourceEntree(mId);
-    QString ssource;
+    char source=tc->getSourceEntree(mId);
+    if (source==0)
+        qDebug() << "source OK : " << source;
+/*    QString ssource;
     ssource = tc->getSource((E_SOURCE_ENTREE)source);
-    ui->lGetSource->setText(ssource);
+    ui->lGetSource->setText(ssource);*/
 }

@@ -14,7 +14,8 @@ CTelecommandeRs232Samsung::~CTelecommandeRs232Samsung()
 int CTelecommandeRs232Samsung::ouvrirRs232(const QString &nomRs232)
 {
     rs = new CRs232c(this, nomRs232);
-    connect(rs, SIGNAL(erreur(int,QString)), this, SLOT(onErreur(int, QString)));
+    connect(rs, SIGNAL(sigErreur(QSerialPort::SerialPortError)), this, SLOT(onErreur(QSerialPort::SerialPortError)));
+    connect(rs, SIGNAL(sigReponse(unsigned char, unsigned char, unsigned char, unsigned char)), this, SLOT(onReponse(unsigned char, unsigned char, unsigned char, unsigned char)));
     rs->initialiser(QSerialPort::Baud9600, QSerialPort::Data8, QSerialPort::NoParity,
                     QSerialPort::OneStop, QSerialPort::NoFlowControl);
     bool res=rs->ouvrirPort();
@@ -28,7 +29,7 @@ int CTelecommandeRs232Samsung::ouvrirRs232(const QString &nomRs232)
 int CTelecommandeRs232Samsung::setAlimentation(int id, bool alim)
 {
     if (setId(id) == ERREUR) {
-        erreur("CTelecommandeRs232Samsung::setAlimentation bad id !");
+        sendErreurTc(ERREUR, "CTelecommandeRs232Samsung::setAlimentation bad id !");
         return ERREUR;
     }
     mTrame[0] = 0xAA;   // entête
@@ -40,29 +41,17 @@ int CTelecommandeRs232Samsung::setAlimentation(int id, bool alim)
     debugAffiche(6);
 
     // emission de la trame
-    if (rs->ecrire(mTrame, 6) == -1)
-    erreur("CTelecommandeRs232Samsung::setAlimentation ecrire.");
-
-    // réponse ACK
-    // synchro sur le premier caractère
-    int nbR=rs->lire(mRep, 8, true);
-    if (nbR==ERREUR) {
-      erreur("CTelecommandeRs232Samsung::setAlimentation recevoir.");
-      return ERREUR;
-    }
-    // analyse de la trame reçue
-    if (mRep[4] == 'A')
-     return OK;
-    else {
-     emit sigErreur(mRep[6], "CTelecommandeRs232Samsung::setAlimentation mRep[6].");
-     return mRep[6];
-    } // else
+    if (rs->ecrire(mTrame, 6) == -1) {
+        sendErreurTc(ERREUR, "CTelecommandeRs232Samsung::setAlimentation pb ecrire.");
+        return ERREUR;
+    } // if ecrire
+    return OK;
 }
 
 bool CTelecommandeRs232Samsung::getEtatAlimentation(int id)
 {
     if (setId(id) == ERREUR) {
-        erreur("CTelecommandeRs232Samsung::getAlimentation bad id !");
+        sendErreurTc(ERREUR, "CTelecommandeRs232Samsung::getAlimentation bad id !");
         return ERREUR;
     }
     mTrame[0] = 0xAA;   // entête
@@ -71,40 +60,19 @@ bool CTelecommandeRs232Samsung::getEtatAlimentation(int id)
     mTrame[3] = 0x00;   // longueur des données
     mTrame[4] = getSommeDeControle(4);   // somme de contrôle
     debugAffiche(5);
+
+    // emission de la trame
     if (rs->ecrire(mTrame,5) == -1) {
-        erreur("CTelecommandeRs232Samsung::getEtatAlimentation ecrire.");
+        sendErreurTc(ERREUR, "CTelecommandeRs232Samsung::getEtatAlimentation ecrire.");
         return ERREUR;
-    }
-    // réponse ACK
-    // synchro sur le premier caractère
-    bool to=true;
-    do {
-        char nbR=rs->lire(mRep, 1, to);
-        to=false;
-        if (nbR==ERREUR) {
-            erreur("CTelecommandeRs232Samsung::getAlimentation recevoir 1.");
-            return ERREUR;
-        } // if nbr
-    } while (mRep[0]!=ENTETE);   // ATTENTION AU BLOCAGE NON RECEPTION
-    // lecture des caractères suivants
-   int nbR=rs->lire(mRep+1, 7, false);
-    if (nbR==ERREUR) {
-        erreur("CTelecommandeRs232Samsung::getAlimentation recevoir 7.");
-        return ERREUR;
-    }
-    // analyse de la trame reçue
-    if (mRep[4] == 'A')
-       return mRep[6];
-    else {
-       emit sigErreur(mRep[6], "CTelecommandeRs232Samsung::getAlimentation mRep[6].");
-       return mRep[6];
-    } // else
+    } // if ecrire
+    return OK;
 }
 
 int CTelecommandeRs232Samsung::setSourceEntree(int id, E_SOURCE_ENTREE src)
 {
     if (setId(id) == ERREUR) {
-        erreur("CTelecommandeRs232Samsung::setSourceEntree bad id !");
+        sendErreurTc(ERREUR, "CTelecommandeRs232Samsung::setSourceEntree bad id !");
         return ERREUR;
     }
     mTrame[0] = 0xAA;   // entête
@@ -114,40 +82,18 @@ int CTelecommandeRs232Samsung::setSourceEntree(int id, E_SOURCE_ENTREE src)
     mTrame[4] = src;   // source
     mTrame[5] = getSommeDeControle(5);   // somme de contrôle
     debugAffiche(6);
+
     if (rs->ecrire(mTrame,6) == -1) {
-        erreur("CTelecommandeRs232Samsung::setSourceEntree ecrire.");
+        sendErreurTc(ERREUR, "CTelecommandeRs232Samsung::setSourceEntree ecrire.");
         return ERREUR;
-    }
-    // réponse ACK
-    // synchro sur le premier caractère
-    bool to=true;
-    do {
-        int nbR=rs->lire(mRep, 1, to);
-        to=false;
-        if (nbR==ERREUR) {
-            erreur("CTelecommandeRs232Samsung::setSourceEntree recevoir 1.");
-            return ERREUR;
-        } // nbr
-    } while (mRep[0]!=ENTETE);   // ATTENTION AU BLOCAGE NON RECEPTION
-    // lecture des caractères suivants
-    int nbR=rs->lire(mRep+1, 7, false);
-    if (nbR==ERREUR) {
-        erreur("CTelecommandeRs232Samsung::setSourceEntree recevoir 7.");
-        return ERREUR;
-    } // nbr
-    // analyse de la trame reçue
-    if (mRep[4] == 'A')
-       return OK;
-    else {
-       emit sigErreur(mRep[6], "CTelecommandeRs232Samsung::setSourceEntree mRep[6].");
-       return mRep[6];
-    } // else
+    } // if ecrire
+    return OK;
 }
 
 int CTelecommandeRs232Samsung::getSourceEntree(int id)
 {
     if (setId(id) == ERREUR) {
-        erreur("CTelecommandeRs232Samsung::getSourceEntree bad id !");
+        sendErreurTc(ERREUR, "CTelecommandeRs232Samsung::getSourceEntree bad id !");
         return ERREUR;
     }
     mTrame[0] = 0xAA;   // entête
@@ -157,33 +103,10 @@ int CTelecommandeRs232Samsung::getSourceEntree(int id)
     mTrame[4] = getSommeDeControle(4);   // somme de contrôle
     debugAffiche(5);
     if (rs->ecrire(mTrame,5) == -1) {
-        erreur("CTelecommandeRs232Samsung::getSourceEntree ecrire.");
+        sendErreurTc(ERREUR, "CTelecommandeRs232Samsung::getSourceEntree ecrire.");
         return ERREUR;
     } // nbr
-    // réponse ACK
-    // synchro sur le premier caractère
-    bool to=true;
-    do {
-        int nbR=rs->lire(mRep, 1, to);
-        to=false;
-        if (nbR==ERREUR) {
-            erreur("CTelecommandeRs232Samsung::getSourceEntree recevoir 1.");
-            return ERREUR;
-        } // nbr
-    } while (mRep[0]==ENTETE);   // ATTENTION AU BLOCAGE NON RECEPTION
-    // lecture des caractères suivants
-    int nbR=rs->lire(mRep+1, 7, false);
-    if (nbR==ERREUR) {
-        erreur("CTelecommandeRs232Samsung::getSourceEntree recevoir 7.");
-        return ERREUR;
-    } // nbr
-    // analyse de la trame reçue
-    if (mRep[4] == 'A')
-       return mRep[6];  // code de la source
-    else {
-       emit sigErreur(mRep[6], "CTelecommandeRs232Samsung::setSourceEntree mRep[6].");
-       return mRep[6];
-    } // else
+    return OK;
 }
 
  QString CTelecommandeRs232Samsung::getSource(E_SOURCE_ENTREE numSource)
@@ -206,9 +129,33 @@ int CTelecommandeRs232Samsung::getSourceEntree(int id)
     return source;
  }
 
- void CTelecommandeRs232Samsung::onErreur(int noErr, QString lieu)
+ void CTelecommandeRs232Samsung::onErreur(QSerialPort::SerialPortError noErr)
  {
-     emit sigErreur(noErr, lieu);
+     emit sigErreur(noErr, "Erreur CRs232c");
+ }
+
+ void CTelecommandeRs232Samsung::onReponse(unsigned char octet0, unsigned char octet1, unsigned char octet4, unsigned char octet6)
+ {
+     qDebug() << QString::number(octet0,16) << QString::number(octet1,16) << " " << QString::number(octet4,16) << QString::number(octet6,16);
+     if (octet0 != ENTETE) {
+         emit sigErreur(ERREUR, "Mauvais format de trame !");
+         return;
+     }
+     switch (octet1) {
+     case 0x11:  // alimentation
+         if (octet4 == 'A') emit sigEtatAlimentation(octet6);
+         else emit sigErreur(octet6, "Erreur NOK");
+         break;
+     case 0x14:  // source entrée
+         break;
+     case 0xFF:
+         if (octet4 == 'A') emit sigEtatAlimentation(octet6);
+         else emit sigErreur(octet6, "Erreur NOK");
+         break;
+         break;
+     default:
+         emit sigErreur(ERREUR, "Fonction de trame inconnue !");
+     } //sw
  }
 
 E_SOURCE_ENTREE CTelecommandeRs232Samsung::getCodeSource(QString nomSource)
@@ -243,14 +190,6 @@ int CTelecommandeRs232Samsung::setId(int id)
     return OK;
 }
 
-
-int CTelecommandeRs232Samsung::erreur(QString err)
-{
-    emit sigErreur(ERREUR, err);
-    qDebug() << err;
-    return ERREUR;  // -1 si erreur
-}
-
 void CTelecommandeRs232Samsung::debugAffiche(int lg)
 {
     QString aff;
@@ -258,4 +197,10 @@ void CTelecommandeRs232Samsung::debugAffiche(int lg)
         aff += QString::number(mTrame[i],16)+" ";
     emit sigAffTrame(aff);
     qDebug() << aff;
+}
+
+void CTelecommandeRs232Samsung::sendErreurTc(char noErr, QString lieu)
+{
+    emit sigErreur(noErr, lieu);
+    qDebug() << noErr;
 }

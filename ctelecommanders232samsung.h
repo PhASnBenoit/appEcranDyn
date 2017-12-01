@@ -3,12 +3,12 @@
 
 #include <QObject>
 #include <QDebug>
-#include "crs232c.h"
 #include <unistd.h>  // usleep
+#include "crs232c.h"
 
 //#define ERREUR -1
-#define DIFFUSION (char)0xFE
-#define ENTETE (char)0xAA
+#define DIFFUSION 0xFE
+#define ENTETE 0xAA
 //#define OK 0
 #define ON 1
 #define OFF 0
@@ -51,11 +51,14 @@ public:
     QString getSource(E_SOURCE_ENTREE numSource);
 
 signals:
-    void sigErreur(char noErr, QString lieu);
+    void sigErreur(char noErr, QString mess);
     void sigAffTrame(QString);
+    void sigEtatAlimentation(char etat);
+    void sigSourceEntree(char src);
 
-public slots:
-    void onErreur(int noErr, QString lieu);
+private slots:
+    void onErreur(QSerialPort::SerialPortError noErr);
+    void onReponse(unsigned char octet0, unsigned char octet1, unsigned char octet4, unsigned char octet6);
 
 private:
     CRs232c *rs;
@@ -65,8 +68,8 @@ private:
     char getSommeDeControle(int lg);
     int setId(int id);
     int ouvrirRs232(const QString &nomRs232);
-    int erreur(QString err);
     void debugAffiche(int lg);
+    void sendErreurTc(char noErr, QString lieu);
 };
 
 #endif // CTELECOMMANDERS232SAMSUNG_H

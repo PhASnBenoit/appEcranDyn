@@ -27,6 +27,8 @@ private slots:
     void onAffTrame(QString trame);
     void on_pbEtat_clicked();
     void on_cbId_currentIndexChanged(int index);
+    void onEtatAlimentation(char etat);
+    void onSourceEntree(char src);
 
 private:
     Ui::CIhmAppEcranDyn *ui;
